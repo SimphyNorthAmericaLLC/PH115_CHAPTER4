@@ -1,0 +1,109 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EXP_4_7_5_WIDGET</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+<style>
+body{background:#1e1e1e;color:white;font-family:monospace;padding:20px;}
+.editor{display:flex;border:1px solid #444;}
+#lineNumbers{background:#111;color:#00ff00;padding:10px;text-align:right;white-space:pre;user-select:none;}
+#code{flex:1;background:#111;color:white;border:none;padding:10px;resize:none;overflow:auto;white-space:pre;}
+button{margin-top:10px;margin-right:10px;padding:8px 14px;background:#007acc;color:white;border:none;cursor:pointer;}
+#output{margin-top:15px;background:#000;color:#0f0;padding:10px;white-space:pre-wrap;display:none;}
+</style>
+</head>
+
+<body>
+
+<h3>Back EMF vs Motor Speed</h3>
+
+<div class="editor">
+<pre id="lineNumbers"></pre>
+<textarea id="code"></textarea>
+</div>
+
+<button onclick="run()">Run Code</button>
+
+<div id="output"></div>
+
+<script>
+
+const code=document.getElementById("code")
+const lines=document.getElementById("lineNumbers")
+const output=document.getElementById("output")
+
+code.value=`# Define constants
+V_source = 12.0  # voltage from the power source in volts
+R = 5.0  # resistance of the coil in ohms
+k = 0.1  # constant relating back EMF to angular speed (V per rad/s)
+
+# Define angular speeds for low and high-speed scenarios
+low_omega = 10.0  # low angular speed in rad/s
+high_omega = 100.0  # high angular speed in rad/s
+
+# Calculate back EMF for low and high angular speeds
+back_emf_low = k * low_omega
+back_emf_high = k * high_omega
+
+# Calculate current drawn at low and high angular speeds
+current_low_speed = (V_source - back_emf_low) / R
+current_high_speed = (V_source - back_emf_high) / R
+
+# Print results
+print(f"At low angular speed ({low_omega} rad/s):")
+print(f"Back EMF = {back_emf_low:.2f} V")
+print(f"Current drawn = {current_low_speed:.2f} A")
+print(f"At high angular speed ({high_omega} rad/s):")
+print(f"Back EMF = {back_emf_high:.2f} V")
+print(f"Current drawn = {current_high_speed:.2f} A")
+`
+
+function updateLines(){
+let count=code.value.split("\n").length
+let nums=""
+for(let i=1;i<=count;i++) nums+=i+"\n"
+lines.textContent=nums
+}
+
+code.addEventListener("input",updateLines)
+updateLines()
+
+let pyodideReady=loadPyodide()
+
+async function run(){
+const pyodide=await pyodideReady
+
+let userCode=code.value
+
+pyodide.runPython(`
+import sys, io
+buffer = io.StringIO()
+sys.stdout = buffer
+`)
+
+try{
+
+pyodide.runPython(userCode)
+
+pyodide.runPython(`
+output = buffer.getvalue()
+`)
+
+let text=pyodide.globals.get("output")
+
+output.textContent=text
+output.style.display="block"
+
+}catch(err){
+alert(err)
+}
+
+}
+
+</script>
+
+</body>
+</html>

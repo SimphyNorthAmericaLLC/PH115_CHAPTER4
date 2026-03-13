@@ -1,0 +1,149 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Electron / Proton Orbit: L and μ</title>
+
+<style>
+body{margin:0;background:#111;color:white;font-family:Arial;}
+#ui{
+position:absolute;
+top:10px;
+left:10px;
+background:rgba(0,0,0,0.6);
+padding:10px;
+border-radius:6px;
+}
+label{display:block;margin-top:5px;}
+</style>
+
+</head>
+
+<body>
+
+<div id="ui">
+<label>
+Particle:
+<select id="particle">
+<option value="electron">Electron</option>
+<option value="proton">Proton</option>
+</select>
+</label>
+
+<label>
+Angular Speed ω:
+<input type="range" id="omega" min="0.2" max="5" step="0.1" value="1">
+<span id="omega_val">1</span>
+</label>
+</div>
+
+<div id="container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color(0xffffff)
+
+const camera = new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,1000)
+camera.position.set(3,3,3)
+
+const renderer = new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(window.innerWidth,window.innerHeight)
+document.getElementById("container").appendChild(renderer.domElement)
+
+const controls = new THREE.OrbitControls(camera,renderer.domElement)
+
+// Orbit ring
+const ringGeo = new THREE.RingGeometry(0.98,1.02,100)
+const ringMat = new THREE.MeshBasicMaterial({color:0x888888,side:THREE.DoubleSide})
+const ring = new THREE.Mesh(ringGeo,ringMat)
+scene.add(ring)
+
+// Electron sphere
+const sphereGeo = new THREE.SphereGeometry(0.08,32,32)
+const sphereMat = new THREE.MeshBasicMaterial({color:0x00ffff})
+const particle = new THREE.Mesh(sphereGeo,sphereMat)
+scene.add(particle)
+
+// L arrow
+const Ldir = new THREE.Vector3(0,0,1)
+const Larrow = new THREE.ArrowHelper(Ldir,new THREE.Vector3(0,0,0),1.5,0x0000ff)
+scene.add(Larrow)
+
+// μ arrow
+let muDir = new THREE.Vector3(0,0,-1)
+const muArrow = new THREE.ArrowHelper(muDir,new THREE.Vector3(0,0,0),1.5,0xff8800)
+scene.add(muArrow)
+
+// Trail
+let trailPoints=[]
+const trailMaterial = new THREE.LineBasicMaterial({color:0x00ffff})
+let trailGeometry = new THREE.BufferGeometry()
+let trail = new THREE.Line(trailGeometry,trailMaterial)
+scene.add(trail)
+
+// UI controls
+const omegaSlider=document.getElementById("omega")
+const omegaVal=document.getElementById("omega_val")
+const particleSelect=document.getElementById("particle")
+
+let omega=1
+omegaSlider.oninput=()=>{
+omega=parseFloat(omegaSlider.value)
+omegaVal.innerText=omega
+}
+
+// particle toggle
+particleSelect.onchange=()=>{
+
+if(particleSelect.value==="electron"){
+muArrow.setDirection(new THREE.Vector3(0,0,-1))
+particle.material.color.set(0x00ffff)
+}else{
+muArrow.setDirection(new THREE.Vector3(0,0,1))
+particle.material.color.set(0xff4444)
+}
+
+}
+
+// animation
+let theta=0
+const R=1
+
+function animate(){
+
+requestAnimationFrame(animate)
+
+theta += 0.02*omega
+
+const x=R*Math.cos(theta)
+const y=R*Math.sin(theta)
+
+particle.position.set(x,y,0)
+
+trailPoints.push(new THREE.Vector3(x,y,0))
+if(trailPoints.length>500) trailPoints.shift()
+
+trailGeometry.setFromPoints(trailPoints)
+
+controls.update()
+renderer.render(scene,camera)
+
+}
+
+animate()
+
+window.addEventListener("resize",()=>{
+camera.aspect=window.innerWidth/window.innerHeight
+camera.updateProjectionMatrix()
+renderer.setSize(window.innerWidth,window.innerHeight)
+})
+
+</script>
+
+</body>
+</html>

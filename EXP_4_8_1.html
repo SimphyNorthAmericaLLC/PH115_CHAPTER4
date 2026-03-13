@@ -1,0 +1,195 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Changing Magnetic Field and Induced Electric Field</title>
+
+<style>
+body{
+margin:0;
+background:#111;
+color:white;
+font-family:Arial;
+text-align:center;
+}
+
+#container{
+width:100%;
+height:100vh;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>Changing Magnetic Field and Induced Electric Field</h2>
+<p>Rotate with mouse. The surface was removed so students can focus on the induced circulation even without a conductor.</p>
+
+<div id="container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+
+const container = document.getElementById("container")
+
+const scene = new THREE.Scene()
+
+const camera = new THREE.PerspectiveCamera(
+60,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+)
+
+camera.position.set(0,6,6)
+
+const renderer = new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(window.innerWidth,window.innerHeight)
+container.appendChild(renderer.domElement)
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement)
+controls.enableDamping = true
+
+// surface removed to emphasize that changing magnetic flux can induce electric fields in space
+
+// lighting
+const light = new THREE.PointLight(0xffffff,1)
+light.position.set(5,10,5)
+scene.add(light)
+
+scene.add(new THREE.AmbientLight(0x404040))
+
+// magnetic field arrows
+const B_arrows = []
+
+function createBArrow(x,z){
+
+const dir = new THREE.Vector3(0,1,0)
+const origin = new THREE.Vector3(x,0.1,z)
+const arrow = new THREE.ArrowHelper(dir,origin,1,0x0066ff,0.3,0.2)
+
+scene.add(arrow)
+B_arrows.push(arrow)
+
+}
+
+for(let x of [-2,-1,0,1,2]){
+for(let z of [-2,-1,0,1,2]){
+createBArrow(x,z)
+}
+}
+
+// induced electric field loops + arrows
+const loops = []
+const currentArrows = []
+
+function createLoop(x,z){
+
+const torusGeom = new THREE.TorusGeometry(0.5,0.05,16,100)
+const torusMat = new THREE.MeshBasicMaterial({color:0xff8800})
+const torus = new THREE.Mesh(torusGeom,torusMat)
+
+torus.rotation.x = Math.PI/2
+torus.position.set(x,0.05,z)
+
+scene.add(torus)
+
+loops.push(torus)
+
+// induced electric field direction arrow
+const arrow = new THREE.ArrowHelper(
+new THREE.Vector3(1,0,0),
+new THREE.Vector3(x+0.5,0.05,z),
+0.6,
+0xffff00,
+0.2,
+0.1
+)
+
+scene.add(arrow)
+currentArrows.push(arrow)
+
+}
+
+for(let x of [-2,0,2]){
+for(let z of [-2,0,2]){
+createLoop(x,z)
+}
+}
+
+let time = 0
+const Bmax = 2
+const omega = 2*Math.PI/5
+
+function animate(){
+
+requestAnimationFrame(animate)
+
+let B = Bmax * Math.sin(omega*time)
+
+// magnetic field arrows
+for(let arrow of B_arrows){
+
+arrow.setLength(Math.abs(B))
+
+if(B>=0)
+arrow.setDirection(new THREE.Vector3(0,1,0))
+else
+arrow.setDirection(new THREE.Vector3(0,-1,0))
+
+}
+
+// induced electric field loops
+for(let i=0;i<loops.length;i++){
+
+let loop = loops[i]
+let arrow = currentArrows[i]
+
+loop.material.opacity = 0.25 + 0.75*Math.abs(B)/Bmax
+loop.material.transparent = true
+
+let dir = B>0 ? -1 : 1
+
+loop.rotation.z += 0.03 * dir
+
+// move arrow around loop
+let angle = time * dir
+let r = 0.5
+
+let x = loop.position.x + r*Math.cos(angle)
+let z = loop.position.z + r*Math.sin(angle)
+
+arrow.position.set(x,0.05,z)
+
+let dx = -Math.sin(angle)*dir
+let dz =  Math.cos(angle)*dir
+
+arrow.setDirection(new THREE.Vector3(dx,0,dz))
+
+}
+
+controls.update()
+renderer.render(scene,camera)
+
+time += 0.05
+
+}
+
+animate()
+
+window.addEventListener('resize',()=>{
+
+camera.aspect = window.innerWidth/window.innerHeight
+camera.updateProjectionMatrix()
+renderer.setSize(window.innerWidth,window.innerHeight)
+
+})
+
+</script>
+
+</body>
+</html>

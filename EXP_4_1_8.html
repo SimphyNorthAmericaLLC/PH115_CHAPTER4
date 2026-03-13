@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EXP_4_1_8_WIDGET</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+<style>
+body{background:#1e1e1e;color:white;font-family:monospace;padding:20px;}
+.editor{display:flex;border:1px solid #444;margin-bottom:10px;}
+#lineNumbers{background:#111;color:#00ff00;padding:10px;text-align:right;white-space:pre;user-select:none;}
+#code{flex:1;background:#111;color:white;border:none;padding:10px;resize:none;overflow:auto;white-space:pre;}
+button{margin-top:5px;margin-right:10px;padding:8px 14px;background:#007acc;color:white;border:none;cursor:pointer;}
+#output{background:#000;color:#0f0;padding:10px;margin-top:10px;white-space:pre-wrap;border:1px solid #333;}
+</style>
+</head>
+
+<body>
+
+<h3>Motor Torque and Rotor Speed Calculation</h3>
+
+<div class="editor">
+<pre id="lineNumbers"></pre>
+<textarea id="code"></textarea>
+</div>
+
+<button onclick="run()">Run Code</button>
+
+<div id="output"></div>
+
+<script>
+
+const code=document.getElementById("code")
+const lines=document.getElementById("lineNumbers")
+const output=document.getElementById("output")
+
+code.value=`import math
+
+# ----- inputs (SI units) -----
+N = 100
+I = 5.0
+B = 0.5
+w = 0.02
+L = 0.04
+J = 2e-4
+
+dtheta = math.pi/2
+
+A = w*L
+K_t = N*I*B*A
+
+W_exact = K_t*(1-math.cos(dtheta))
+W_upper = K_t*dtheta
+
+KE = W_exact
+omega = math.sqrt(2*KE/J)
+
+print(f"A = {A:.5f} m^2")
+print(f"tau_max = N I B A = {K_t:.4f} N·m")
+print(f"Max kinetic energy (no losses): KE = {KE:.4f} J")
+print(f"Corresponding angular speed: ω = {omega:.2f} rad/s")
+`
+
+function updateLines(){
+let n=code.value.split("\n").length
+let s=""
+for(let i=1;i<=n;i++) s+=i+"\n"
+lines.textContent=s
+}
+updateLines()
+
+code.addEventListener("input",updateLines)
+code.addEventListener("scroll",()=>lines.scrollTop=code.scrollTop)
+
+let pyodideReady=loadPyodide()
+
+async function run(){
+
+output.textContent="Running..."
+
+let pyodide=await pyodideReady
+
+let stdout=""
+pyodide.setStdout({
+batched:(s)=>{stdout+=s}
+})
+
+await pyodide.runPythonAsync(code.value)
+
+output.textContent=stdout
+
+}
+
+</script>
+</body>
+</html>
