@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>EXP_4_1_3_WIDGET</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+<style>
+body{background:#1e1e1e;color:white;font-family:monospace;padding:20px;}
+.editor{display:flex;border:1px solid #444;}
+#lineNumbers{background:#111;color:#00ff00;padding:10px;text-align:right;white-space:pre;}
+#code{flex:1;background:#111;color:white;border:none;padding:10px;resize:none;white-space:pre;}
+button{margin-top:10px;margin-right:10px;padding:8px 14px;background:#007acc;color:white;border:none;cursor:pointer;}
+#plotBox{margin-top:15px;background:white;padding:10px;display:none;}
+#plotBox img{max-width:100%;}
+</style>
+</head>
+
+<body>
+
+<h3>Charge Motion in Magnetic Field (RK4)</h3>
+
+<div class="editor">
+<pre id="lineNumbers"></pre>
+<textarea id="code"></textarea>
+</div>
+
+<button onclick="run()">Run Code</button>
+<button onclick="savePNG()">Save PNG</button>
+<button onclick="savePDF()">Save PDF</button>
+
+<div id="plotBox">
+<img id="plot">
+</div>
+
+<script>
+
+const code=document.getElementById("code")
+const lines=document.getElementById("lineNumbers")
+const plot=document.getElementById("plot")
+const plotBox=document.getElementById("plotBox")
+
+code.value=`import numpy as np
+import matplotlib.pyplot as plt
+
+# Constants
+q = 1.0
+m = 0.1
+B = 0.05
+initial_speed = 15.0
+dt = 0.01
+time_steps = 12000
+
+x, y = 0.0, 0.0
+vx, vy = initial_speed, 0.0
+
+x_positions = []
+y_positions = []
+time_values = []
+
+def derivatives(state):
+    x, y, vx, vy = state
+    ax = (q/m) * (vy * B)
+    ay = -(q/m) * (vx * B)
+    return np.array([vx, vy, ax, ay])
+
+state = np.array([x, y, vx, vy], dtype=float)
+
+for t in range(time_steps):
+    time = t * dt
+    
+    k1 = derivatives(state)
+    k2 = derivatives(state + 0.5 * dt * k1)
+    k3 = derivatives(state + 0.5 * dt * k2)
+    k4 = derivatives(state + dt * k3)
+    
+    state += (dt / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
+    
+    x_positions.append(state[0])
+    y_positions.append(state[1])
+    time_values.append(time)
+
+fig, axs = plt.subplots(3, 1, figsize=(10, 15))
+
+axs[0].plot(x_positions, y_positions)
+axs[0].set_title('Trajectory of a Charge in a Constant Magnetic Field')
+axs[0].set_xlabel('X Position (m)')
+axs[0].set_ylabel('Y Position (m)')
+axs[0].grid()
+axs[0].axis('equal')
+
+axs[1].plot(time_values, x_positions)
+axs[1].set_title('X Position vs Time')
+axs[1].set_xlabel('Time (s)')
+axs[1].set_ylabel('X Position (m)')
+axs[1].grid()
+
+axs[2].plot(time_values, y_positions)
+axs[2].set_title('Y Position vs Time')
+axs[2].set_xlabel('Time (s)')
+axs[2].set_ylabel('Y Position (m)')
+axs[2].grid()
+
+plt.tight_layout()
+`
+
+function updateLines(){
+let count=code.value.split("\n").length
+let nums=""
+for(let i=1;i<=count;i++) nums+=i+"\n"
+lines.textContent=nums
+}
+
+code.addEventListener("input",updateLines)
+updateLines()
+
+let pyodideReady=loadPyodide()
+
+async function run(){
+
+const pyodide=await pyodideReady
+await pyodide.loadPackage(["numpy","matplotlib"])
+
+pyodide.runPython(`
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import io,base64
+`)
+
+try{
+
+pyodide.runPython(code.value)
+
+pyodide.runPython(`
+buf=io.BytesIO()
+plt.savefig(buf,format="png")
+buf.seek(0)
+img=base64.b64encode(buf.read()).decode()
+`)
+
+let img=pyodide.globals.get("img")
+plot.src="data:image/png;base64,"+img
+plotBox.style.display="block"
+
+}catch(err){
+alert(err)
+}
+
+}
+
+function savePNG(){
+let link=document.createElement("a")
+link.href=plot.src
+link.download="EXP_4_1_3_plot.png"
+link.click()
+}
+
+function savePDF(){
+let link=document.createElement("a")
+link.href=plot.src
+link.download="EXP_4_1_3_plot.pdf"
+link.click()
+}
+
+</script>
+
+</body>
+</html>
