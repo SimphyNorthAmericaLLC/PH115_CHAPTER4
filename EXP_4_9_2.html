@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EXP_4_9_2_WIDGET</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+<style>
+body{background:#1e1e1e;color:white;font-family:monospace;padding:15px;}
+.editor{display:flex;border:1px solid #444;height:340px;}
+#lineNumbers{background:#111;color:#00ff00;padding:10px 8px;margin:0;text-align:right;overflow:hidden;white-space:pre;user-select:none;}
+#code{flex:1;background:#111;color:white;border:none;padding:10px;resize:none;overflow:auto;white-space:pre;}
+button{margin-top:10px;margin-right:10px;padding:8px 14px;background:#007acc;color:white;border:none;cursor:pointer;}
+#output{background:#000;color:#0f0;padding:10px;margin-top:10px;white-space:pre-wrap;border:1px solid #333;}
+#plotBox{margin-top:15px;background:white;padding:10px;display:none;}
+#plotBox img{max-width:100%;margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<h3>Charged Particle in Time-Varying Magnetic Field</h3>
+
+<div class="editor">
+<pre id="lineNumbers"></pre>
+<textarea id="code" wrap="off">import numpy as np
+import matplotlib.pyplot as plt
+
+"""
+Charged particle in a time-varying uniform Bz(t) with induced azimuthal E-field.
+- Uses Boris pusher (stable for v×B rotation).
+- Demonstrates r_L ~ 1/sqrt(B) scaling (adiabatic invariant approx. conserved).
+- Toggle INCLUDE_FARADAY_E to see why omitting E(t) is unphysical.
+
+Tip: Start with these normalized parameters to see the physics clearly.
+Switch to electron params if desired (set USE_ELECTRON=True).
+"""
+
+# ------------------ Parameters ------------------
+USE_ELECTRON = False      # set True to use electron mass/charge (tiny dt then!)
+INCLUDE_FARADAY_E = True  # induced E from dB/dt (must be True for physical consistency)
+
+if USE_ELECTRON:
+    q = -1.602176634e-19   # C
+    m = 9.10938356e-31     # kg
+    v0 = np.array([1.0e6, 0.0, 0.0])  # m/s (nonrelativistic here)
+    B0 = 0.1               # Tesla scale
+    alpha = 1.0            # B(t) ~ B0 * t^alpha
+    dt = 1e-14             # s (very small for stability due to electron scales)
+    steps = 200000
+else:
+    # Normalized/demo-friendly numbers (nonrelativistic)
+    q = 1.0                # "C"
+    m = 0.1                # "kg"
+    v0 = np.array([15.0, 0.0, 0.0])   # initial velocity
+    B0 = 0.05              # field scale
+    alpha = 1.3            # B(t) = B0 * t^alpha
+    dt = 1e-3              # time step
+    steps = 7000
+
+# Small offset to avoid t=0 singularity in dB/dt when alpha<1 or for numerical stability
+t_eps = 1e-6
+
+# ------------------ Field definitions ------------------
+def Bz_of_t(t):
+    t_eff = max(t, t_eps)
+    return B0 * (t_eff ** alpha)
+
+def dBdt_of_t(t):
+    t_eff = max(t, t_eps)
+    return B0 * alpha * (t_eff ** (alpha - 1.0))
+
+def fields(t, r):
+    B = np.array([0.0, 0.0, Bz_of_t(t)])
+    if INCLUDE_FARADAY_E:
+        dBdt = dBdt_of_t(t)
+        E = 0.5 * dBdt * np.array([r[1], -r[0], 0.0])
+    else:
+        E = np.zeros(3)
+    return E, B
+
+# ------------------ Boris pusher ------------------
+def boris_push(r, v, t, dt, q, m):
+    E, B = fields(t, r)
+    qm = q / m
+
+    v_minus = v + 0.5 * qm * E * dt
+
+    tvec = 0.5 * qm * B * dt
+    v_prime = v_minus + np.cross(v_minus, tvec)
+    svec = 2.0 * tvec / (1.0 + np.dot(tvec, tvec))
+    v_plus = v_minus + np.cross(v_prime, svec)
+
+    v_new = v_plus + 0.5 * qm * E * dt
+
+    r_new = r + v_new * dt
+    return r_new, v_new
+
+# ------------------ Initialization ------------------
+r = np.array([0.0, 0.0, 0.0])
+v = v0.copy()
+
+xs, ys, ts = [], [], []
+speeds, Bmags = [], []
+rL_list, mu_list = [], []
+
+# ------------------ Main loop ------------------
+for n in range(steps):
+    t = n * dt
+
+    xs.append(r[0]); ys.append(r[1]); ts.append(t)
+    Bmag = abs(Bz_of_t(t))
+    Bmags.append(Bmag)
+    speed = np.linalg.norm(v)
+    speeds.append(speed)
+
+    v_perp2 = v[0]**2 + v[1]**2
+    if Bmag > 0:
+        rL = m * np.sqrt(v_perp2) / (abs(q) * Bmag)
+        mu = m * v_perp2 / (2.0 * Bmag)
+    else:
+        rL, mu = np.nan, np.nan
+    rL_list.append(rL)
+    mu_list.append(mu)
+
+    r, v = boris_push(r, v, t, dt, q, m)
+
+# ------------------ Plots ------------------
+fig, axs = plt.subplots(2, 2, figsize=(11, 9))
+
+axs[0,0].plot(xs, ys)
+axs[0,0].set_title('Trajectory in the xy-plane')
+axs[0,0].set_xlabel('x')
+axs[0,0].set_ylabel('y')
+axs[0,0].axis('equal'); axs[0,0].grid(True)
+
+axs[0,1].plot(ts, rL_list)
+axs[0,1].set_title('Instantaneous gyroradius r_L(t)')
+axs[0,1].set_xlabel('time')
+axs[0,1].set_ylabel('r_L')
+axs[0,1].grid(True)
+
+axs[1,0].plot(ts, mu_list)
+axs[1,0].set_title('Adiabatic invariant μ = m v_perp^2 / (2 B)')
+axs[1,0].set_xlabel('time')
+axs[1,0].set_ylabel('μ')
+axs[1,0].grid(True)
+
+axs[1,1].plot(ts, speeds, label='|v|')
+axs[1,1].plot(ts, Bmags, label='B(t)', alpha=0.7)
+axs[1,1].set_title('Speed and magnetic field vs time')
+axs[1,1].set_xlabel('time')
+axs[1,1].legend(); axs[1,1].grid(True)
+
+plt.tight_layout()
+</textarea>
+</div>
+
+<button onclick="run()">Run Code</button>
+<button onclick="savePNG()">Save PNG</button>
+<button onclick="savePDF()">Save PDF</button>
+
+
+
+<div id="plotBox">
+<img id="plot1">
+</div>
+
+<script>
+const codeEl=document.getElementById("code");
+const lineNumbers=document.getElementById("lineNumbers");
+const plotBox=document.getElementById("plotBox");
+
+
+function updateLineNumbers(){
+    const lines=codeEl.value.split("\n").length;
+    let nums="";
+    for(let i=1;i<=lines;i++) nums+=i+"\n";
+    lineNumbers.textContent=nums;
+}
+
+codeEl.addEventListener("input", updateLineNumbers);
+codeEl.addEventListener("scroll", ()=> lineNumbers.scrollTop = codeEl.scrollTop);
+updateLineNumbers();
+
+let pyodideReady = loadPyodide();
+
+async function run(){
+    plotBox.style.display="none";
+    
+    let pyodide = await pyodideReady;
+    await pyodide.loadPackage(["numpy","matplotlib"]);
+    await pyodide.runPythonAsync(`
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+plt.close('all')
+from io import BytesIO
+import base64
+`);
+    await pyodide.runPythonAsync(codeEl.value);
+
+    const figCount = await pyodide.runPythonAsync("len(plt.get_fignums())");
+    if (figCount > 0) {
+        let img = await pyodide.runPythonAsync(`
+buf=BytesIO()
+plt.savefig(buf,format="png")
+buf.seek(0)
+base64.b64encode(buf.read()).decode()
+`);
+        document.getElementById("plot1").src="data:image/png;base64,"+img;
+        plotBox.style.display="block";
+
+        await pyodide.runPythonAsync(`
+plt.savefig("plot.png")
+plt.savefig("plot.pdf")
+`);
+    }
+
+}
+
+
+async function savePNG(){
+    let pyodide = await pyodideReady;
+    let f = pyodide.FS.readFile("plot.png");
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([f],{type:"image/png"}));
+    a.download="plot.png";
+    a.click();
+}
+
+async function savePDF(){
+    let pyodide = await pyodideReady;
+    let f = pyodide.FS.readFile("plot.pdf");
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([f],{type:"application/pdf"}));
+    a.download="plot.pdf";
+    a.click();
+}
+
+</script>
+</body>
+</html>

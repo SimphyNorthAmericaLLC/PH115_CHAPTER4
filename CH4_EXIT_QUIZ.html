@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Magnetism & Induction Quiz — Restart on Wrong</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.45; margin: 0; padding: 24px; background: #0b0b0b; color: #f2f2f2; }
+  #quiz2 { max-width: 760px; margin: 0 auto; }
+  #q2_stem { margin: .5rem 0 1rem; font-size: 1.05rem; }
+  #q2_options { display: grid; gap: .5rem; }
+  .q2_option { border: 1px solid #333; border-radius: 10px; padding: .6rem .8rem; cursor: pointer; text-align: left; background:#121212; }
+  .q2_option:hover { background: #161616; }
+  #q2_feedback { margin-top: .9rem; min-height: 1.2rem; color:#aaa; }
+  #q2_nav { margin-top: 1rem; display: flex; gap: .6rem; }
+  button { padding: .55rem .9rem; border-radius: 10px; border: 1px solid #333; background: #1b1b1b; color: #f2f2f2; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <div id="quiz2">
+    <h3 id="q2_progress"></h3>
+    <div id="q2_stem"></div>
+    <div id="q2_options"></div>
+    <div id="q2_feedback"></div>
+    <div id="q2_nav">
+      <button id="q2_restart" style="margin-left:auto;">Restart</button>
+    </div>
+  </div>
+
+<script>
+/* Exact wording preserved. Correct answers hidden; quiz restarts immediately on any wrong answer. */
+const quiz2 = [
+  {
+    stem: "A constant magnetic field B will create an electric field with direction",
+    choices: [
+      "Perpendicular to the magnetic field.",
+      "Horizontal at 0° to the magnetic field.",
+      "Horizontal at 180° to the magnetic field.",
+      "None of these."
+    ],
+    correctIndex: 3
+  },
+  {
+    stem: "In a solenoid with an iron core, the magnetic field increases due to:",
+    choices: [
+      "The alignment of magnetic domains within the iron core.",
+      "An increase in electric current flow through the wire.",
+      "Magnetic properties of the iron reducing magnetic resistance.",
+      "The solenoid’s geometry alone."
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "When a magnet is moved towards a coil, what is the reaction of the coil according to Faraday's Law?",
+    choices: [
+      "The coil generates a magnetic field in the opposite direction.",
+      "The coil’s magnetic field aligns with the approaching magnet.",
+      "No reaction occurs unless the magnet stops.",
+      "The coil's field remains unaffected."
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "In a vacuum cleaner, why does the motor draw less current at full speed?",
+    choices: [
+      "Reduced friction in the motor.",
+      "The increase in back-EMF reduces the effective voltage, lowering current.",
+      "The back-EMF aligns with the supply voltage to increase current.",
+      "Airflow resistance reduces the motor’s load."
+    ],
+    correctIndex: 1
+  },
+  {
+    stem: "Faraday’s law applies when a moving magnet changes the flux through:",
+    choices: [
+      "a coil",
+      "plain air",
+      "both coil or air",
+      "none of these makes sense"
+    ],
+    correctIndex: 2
+  },
+  {
+    stem: "In empty space, the induced magnetic field is given by:",
+    choices: [
+      "a constant electric field",
+      "a changing electric field",
+      "a constant magnetic field",
+      "none of these makes sense"
+    ],
+    correctIndex: 1
+  },
+  {
+    stem: "The direction of the induced electric field is always:",
+    choices: [
+      "collinear to the changing magnetic field",
+      "opposite to the changing magnetic field",
+      "perpendicular to the changing magnetic field",
+      "none of these"
+    ],
+    correctIndex: 2
+  },
+  {
+    stem: "A piece of copper is never attracted to a magnet. However, while you move the copper over the magnet, then:",
+    choices: [
+      "copper is turned into a temporary magnet",
+      "Still nothing happens",
+      "Nothing happens, unless you stop moving the magnet over the copper instead",
+      "None of these apply"
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "The EMF field, unlike the Coulomb electric field, is:",
+    choices: [
+      "A non-conservative field",
+      "A field whose closed path integral is not equal to zero",
+      "A field whose work depends on the initial and final positions",
+      "All of these",
+      "None of these"
+    ],
+    correctIndex: 3
+  },
+  {
+    stem: "The creation of an electromagnet requires:",
+    choices: [
+      "Either AC or DC",
+      "only DC",
+      "only AC",
+      "only a battery (of any type)",
+      "None of these"
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "Only an electromagnet can have a north magnetic pole without having a south magnetic pole. This statement is:",
+    choices: [
+      "totally inaccurate",
+      "totally accurate",
+      "more information on the type of electromagnetic is required."
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "In Maxwell's equations, the electric fields that appear in Gauss' law for electricity and Faraday's law of induction both require charges. This statement is:",
+    choices: [
+      "False",
+      "True",
+      "it depends on the rate of change of the magnetic field",
+      "more information is needed."
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "To the question, ”Does current run through a capacitor?\" when we apply the corrected Ampere's law between the plates of a parallel-plate charging capacitor, then we would find that the line integral of the magnetic field is",
+    choices: [
+      "proportional to the changing electric field",
+      "zero",
+      "proportional to the enclosed current",
+      "None of these apply."
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "When a charge entered perpendicularly with some speed in a magnetic field that was changing as B = (t/4)^2 where t is the time in seconds, then the charge likely",
+    choices: [
+      "engaged in a helical motion with constant radius",
+      "went through in a straight line",
+      "engaged in a uniform circular motion",
+      "engaged in a circular motion with constantly decreasing radius."
+    ],
+    correctIndex: 3
+  },
+  {
+    stem: "The magnetic field closed line integral around a circular path that only contains a constant electric field is equal to",
+    choices: [
+      "Zero",
+      "μ0*i_enclosed",
+      "the speed of light",
+      "None of these apply."
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "A Gaussian surface of radius R is drawn so that it encompasses only the north pole of a magnet. The evaluation of the closed surface area A encompassed by the integral {B·dA}, where B is the magnetic field magnitude, is",
+    choices: [
+      "Zero",
+      "μ0*i_enclosed",
+      "greater than zero",
+      "less than zero",
+      "None of these apply"
+    ],
+    correctIndex: 0
+  },
+  {
+    stem: "Two same charges moving in parallel next to each other may or may not be deflected from each other depending on",
+    choices: [
+      "their speeds",
+      "their masses",
+      "their initial distance",
+      "None of these apply"
+    ],
+    correctIndex: 0
+  }
+];
+
+const els = {
+  progress: document.getElementById('q2_progress'),
+  stem: document.getElementById('q2_stem'),
+  options: document.getElementById('q2_options'),
+  feedback: document.getElementById('q2_feedback'),
+  restart: document.getElementById('q2_restart'),
+};
+
+let idx = 0;
+let score = 0;
+
+function render() {
+  const total = quiz2.length;
+  els.progress.textContent = `Question ${idx+1} of ${total}  ·  Score: ${score}/${total}`;
+  els.stem.textContent = quiz2[idx].stem;
+  els.options.innerHTML = '';
+  els.feedback.textContent = '';
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  quiz2[idx].choices.forEach((text, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'q2_option';
+    btn.type = 'button';
+    btn.innerHTML = `<strong>${letters[i]})</strong> ${text}`;
+    btn.addEventListener('click', () => handleChoice(i));
+    els.options.appendChild(btn);
+  });
+}
+
+function handleChoice(i) {
+  const correct = quiz2[idx].correctIndex;
+  if (i === correct) {
+    score++;
+    els.feedback.textContent = 'Correct.';
+    setTimeout(() => {
+      idx++;
+      if (idx < quiz2.length) {
+        render();
+      } else {
+        els.progress.textContent = `Completed · Final Score: ${score}/${quiz2.length}`;
+        els.stem.textContent = 'Quiz finished.';
+        els.options.innerHTML = '';
+        els.feedback.textContent = 'Press Restart to try again.';
+      }
+    }, 600);
+  } else {
+    els.feedback.textContent = 'Incorrect — restarting from Question 1…';
+    setTimeout(() => {
+      idx = 0;
+      score = 0;
+      render();
+    }, 700);
+  }
+}
+
+els.restart.addEventListener('click', () => {
+  idx = 0; score = 0; render();
+});
+
+render();
+</script>
+</body>
+</html>

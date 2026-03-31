@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EXP_4_2_4_WIDGET</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+<style>
+body{background:#1e1e1e;color:white;font-family:monospace;padding:15px;}
+.editor{display:flex;border:1px solid #444;height:340px;}
+#lineNumbers{background:#111;color:#00ff00;padding:10px 8px;margin:0;text-align:right;overflow:hidden;white-space:pre;user-select:none;}
+#code{flex:1;background:#111;color:white;border:none;padding:10px;resize:none;overflow:auto;white-space:pre;}
+button{margin-top:10px;margin-right:10px;padding:8px 14px;background:#007acc;color:white;border:none;cursor:pointer;}
+#output{background:#000;color:#0f0;padding:10px;margin-top:10px;white-space:pre-wrap;border:1px solid #333;}
+#plotBox{margin-top:15px;background:white;padding:10px;display:none;}
+#plotBox img{max-width:100%;margin-bottom:10px;}
+</style>
+</head>
+<body>
+
+<h3>Charged Particle Motion in Electric and Magnetic Fields (ODE Solver)</h3>
+
+<div class="editor">
+<pre id="lineNumbers"></pre>
+<textarea id="code" wrap="off">import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+# Parameters
+q = 5e-3  # Charge of the particle (Coulombs)
+m = 6e-2  # Mass of the particle (kg)
+B = 13    # Magnetic field strength (Tesla)
+E = 5     # Electric field strength (V/m)
+
+# Time parameters
+t0 = 0      # Initial time (seconds)
+tf = 100    # Final time (seconds)
+
+# Initial conditions
+x0 = 0      # Initial x position (m)
+y0 = 0      # Initial y position (m)
+u_x0 = 0    # Initial velocity in x direction (m/s)
+u_y0 = 0    # Initial velocity in y direction (m/s)
+
+initial_conditions = [x0, y0, u_x0, u_y0]
+
+def equations_of_motion(t, y):
+    dydt = np.zeros(4)
+    dydt[0] = y[2]
+    dydt[1] = y[3]
+    dydt[2] = (q/m) * y[3] * B
+    dydt[3] = (q/m) * (E - y[2] * B)
+    return dydt
+
+time_span = (t0, tf)
+solution = solve_ivp(equations_of_motion, time_span, initial_conditions, dense_output=True)
+
+t = np.linspace(t0, tf, 500)
+sol = solution.sol(t)
+
+x = sol[0]
+y = sol[1]
+
+plt.figure(figsize=(10,8))
+
+plt.subplot(2,1,1)
+plt.plot(t,x,linewidth=2)
+plt.xlabel("Time (s)")
+plt.ylabel("x (m)")
+plt.grid()
+
+plt.subplot(2,1,2)
+plt.plot(t,y,linewidth=2)
+plt.xlabel("Time (s)")
+plt.ylabel("y (m)")
+plt.grid()
+
+plt.tight_layout()
+
+plt.savefig("plot.png")
+plt.savefig("plot.pdf")
+
+plt.show()
+</textarea>
+</div>
+
+<button onclick="run()">Run Code</button>
+<button onclick="savePNG()">Save PNG</button>
+<button onclick="savePDF()">Save PDF</button>
+
+<div id="output"></div>
+
+<div id="plotBox">
+<img id="plot1">
+</div>
+
+<script>
+const codeEl=document.getElementById("code");
+const lineNumbers=document.getElementById("lineNumbers");
+const plotBox=document.getElementById("plotBox");
+const output=document.getElementById("output");
+
+function updateLineNumbers(){
+    const lines=codeEl.value.split("\n").length;
+    let nums="";
+    for(let i=1;i<=lines;i++) nums+=i+"\n";
+    lineNumbers.textContent=nums;
+}
+
+codeEl.addEventListener("input", updateLineNumbers);
+codeEl.addEventListener("scroll", ()=> lineNumbers.scrollTop = codeEl.scrollTop);
+updateLineNumbers();
+
+let pyodideReady = loadPyodide();
+
+async function run(){
+    plotBox.style.display="none";
+    output.textContent="Running...";
+    let pyodide = await pyodideReady;
+    await pyodide.loadPackage(["numpy","matplotlib","scipy"]);
+    await pyodide.runPythonAsync(`
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+plt.close('all')
+from io import BytesIO
+import base64
+
+import sys, io
+sys.stdout = io.StringIO()
+`);
+    await pyodide.runPythonAsync(codeEl.value);
+
+    let stdout = await pyodide.runPythonAsync("sys.stdout.getvalue()");
+    output.textContent = stdout || "Execution complete."; 
+
+    const figCount = await pyodide.runPythonAsync("len(plt.get_fignums())");
+    if (figCount > 0) {
+        let img = await pyodide.runPythonAsync(`
+buf=BytesIO()
+plt.savefig(buf,format="png")
+buf.seek(0)
+base64.b64encode(buf.read()).decode()
+`);
+        document.getElementById("plot1").src="data:image/png;base64,"+img;
+        plotBox.style.display="block";
+
+        await pyodide.runPythonAsync(`
+plt.savefig("plot.png")
+plt.savefig("plot.pdf")
+`);
+    }
+
+}
+
+
+async function savePNG(){
+    let pyodide = await pyodideReady;
+    let f = pyodide.FS.readFile("plot.png");
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([f],{type:"image/png"}));
+    a.download="plot.png";
+    a.click();
+}
+
+async function savePDF(){
+    let pyodide = await pyodideReady;
+    let f = pyodide.FS.readFile("plot.pdf");
+    let a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([f],{type:"application/pdf"}));
+    a.download="plot.pdf";
+    a.click();
+}
+
+</script>
+</body>
+</html>

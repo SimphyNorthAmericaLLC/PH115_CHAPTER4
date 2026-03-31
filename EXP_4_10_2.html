@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relative Motion in a Current-Carrying Wire</title>
+  <style>
+    :root {
+      --bg: #111827;
+      --panel: #1f2937;
+      --panel2: #0f172a;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #f59e0b;
+      --ion: #ef4444;
+      --electron: #22c55e;
+      --field: #60a5fa;
+      --measure: #c084fc;
+      --wire: #cbd5e1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap { max-width: 1260px; margin: 0 auto; padding: 18px; }
+    .title { font-size: 28px; font-weight: 700; color: white; margin-bottom: 8px; }
+    .subtitle { color: var(--muted); line-height: 1.55; margin-bottom: 16px; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+    .panel, .canvas-panel {
+      border-radius: 16px; border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+    }
+    .panel { background: var(--panel); padding: 16px; }
+    .canvas-panel { background: var(--panel2); padding: 10px; }
+    h2 { font-size: 18px; margin: 0 0 14px 0; color: white; }
+    .control { margin-bottom: 16px; }
+    .control label {
+      display: flex; justify-content: space-between; gap: 12px;
+      font-size: 14px; margin-bottom: 6px;
+    }
+    input[type="range"] { width: 100%; }
+    .checkbox-row, .radio-row {
+      display: flex; align-items: center; gap: 10px; margin: 10px 0; font-size: 14px;
+    }
+    .radio-group, .info-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+    .info-box { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    button {
+      border: 0; border-radius: 10px; padding: 10px 14px; font-size: 14px;
+      font-weight: 700; cursor: pointer; color: #111827; background: var(--accent);
+      margin-right: 8px; margin-top: 6px;
+    }
+    button.secondary { background: #d1d5db; }
+    .legend {
+      margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 14px; color: var(--muted);
+    }
+    .legend-item { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+    .swatch { width: 14px; height: 14px; border-radius: 50%; }
+    .swatch.square { border-radius: 3px; }
+    canvas {
+      display: block; width: 100%; height: auto; border-radius: 12px;
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+    }
+    .readout {
+      display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; margin-top: 12px;
+    }
+    .card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 10px 12px;
+    }
+    .card .k { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .card .v { font-size: 16px; font-weight: 700; }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+      .readout { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Relative Motion in a Current-Carrying Wire</div>
+    <div class="subtitle">
+      This version makes the <b>visible number of electrons equal to the visible number of positive ions</b> so the neutrality idea is easier to teach. It also lets a moving external test charge bend <b>away from the wire</b> with a clearly parabolic-looking path.
+      A highlighted <b>measurement segment</b> counts charges in the same part of the wire. In the lab frame the counts match, while in the electron frame
+      the ion lattice is drawn moving upward with <b>conceptual length contraction</b>, so more positive charge can fit into the same segment.
+    </div>
+
+    <div class="layout">
+      <div class="panel">
+        <h2>Controls</h2>
+
+        <div class="radio-group">
+          <div style="font-weight:700; margin-bottom:8px; color:white;">Choose frame</div>
+          <div class="radio-row">
+            <input type="radio" id="modeLab" name="mode" value="lab" checked>
+            <label for="modeLab">Lab frame: ions fixed, electrons drift</label>
+          </div>
+          <div class="radio-row">
+            <input type="radio" id="modeElectron" name="mode" value="electron">
+            <label for="modeElectron">Electron frame: freeze one electron, ions move</label>
+          </div>
+        </div>
+
+        <div class="control">
+          <label><span>Visible charge pairs</span><span id="pairCountVal">14</span></label>
+          <input id="pairCount" type="range" min="6" max="22" step="1" value="14">
+        </div>
+
+        <div class="control">
+          <label><span>Drift speed</span><span id="speedVal">0.50</span></label>
+          <input id="speed" type="range" min="0" max="2.5" step="0.05" value="0.5">
+        </div>
+
+        <div class="control">
+          <label><span>Thermal motion</span><span id="thermalVal">0.65</span></label>
+          <input id="thermal" type="range" min="0" max="2" step="0.05" value="0.65">
+        </div>
+
+        <div class="control">
+          <label><span>Contraction display</span><span id="contractVal">0.18</span></label>
+          <input id="contract" type="range" min="0" max="0.45" step="0.01" value="0.18">
+        </div>
+
+        <div class="control">
+          <label><span>Measurement segment height</span><span id="segmentVal">0.40 L</span></label>
+          <input id="segment" type="range" min="0.20" max="0.65" step="0.01" value="0.40">
+        </div>
+
+        <div class="checkbox-row">
+          <input id="testChargeEnabled" type="checkbox" checked>
+          <label for="testChargeEnabled">Show external test charge</label>
+        </div>
+        <div class="checkbox-row">
+          <input id="testChargeMoving" type="checkbox">
+          <label for="testChargeMoving">Set test charge in motion</label>
+        </div>
+        <div class="control">
+          <label><span>Test charge speed</span><span id="testSpeedVal">0.80</span></label>
+          <input id="testSpeed" type="range" min="0.2" max="2.5" step="0.05" value="0.8">
+        </div>
+        <div class="radio-group">
+          <div style="font-weight:700; margin-bottom:8px; color:white;">Test charge direction</div>
+          <div class="radio-row">
+            <input type="radio" id="testDirUp" name="testDir" value="up" checked>
+            <label for="testDirUp">Upward</label>
+          </div>
+          <div class="radio-row">
+            <input type="radio" id="testDirDown" name="testDir" value="down">
+            <label for="testDirDown">Downward</label>
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <input id="testChargeRight" type="checkbox" checked>
+          <label for="testChargeRight">Place test charge on right side</label>
+        </div>
+
+        <div class="checkbox-row">
+          <input id="showTrails" type="checkbox" checked>
+          <label for="showTrails">Show electron trails</label>
+        </div>
+        <div class="checkbox-row">
+          <input id="showDensity" type="checkbox" checked>
+          <label for="showDensity">Show spacing guide</label>
+        </div>
+        <div class="checkbox-row">
+          <input id="showSegment" type="checkbox" checked>
+          <label for="showSegment">Show measured wire segment</label>
+        </div>
+
+        <button id="toggleBtn">Pause</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+
+        <div class="info-box">
+          Pedagogical choice: the contraction shown here is deliberately exaggerated so students can <i>see</i> the frame argument.
+          Real drift speeds in wires are far too small to produce visible contraction.
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background:#ef4444"></span> Positive ions</div>
+          <div class="legend-item"><span class="swatch" style="background:#22c55e"></span> Electrons</div>
+          <div class="legend-item"><span class="swatch" style="background:#fde047"></span> Frozen reference electron</div>
+          <div class="legend-item"><span class="swatch square" style="background:#c084fc"></span> Measured segment</div>
+          <div class="legend-item"><span class="swatch" style="background:#60a5fa"></span> Electric field / frame arrows</div>
+        </div>
+      </div>
+
+      <div class="canvas-panel">
+        <canvas id="simCanvas" width="900" height="780"></canvas>
+        <div class="readout">
+          <div class="card"><div class="k">Current frame</div><div class="v" id="frameReadout">Lab frame</div></div>
+          <div class="card"><div class="k">Visible ions</div><div class="v" id="visibleIonReadout">14</div></div>
+          <div class="card"><div class="k">Visible electrons</div><div class="v" id="visibleElectronReadout">14</div></div>
+          <div class="card"><div class="k">Ions in segment</div><div class="v" id="ionSegmentReadout">0</div></div>
+          <div class="card"><div class="k">Electrons in segment</div><div class="v" id="electronSegmentReadout">0</div></div>
+          <div class="card"><div class="k">Net charge in segment</div><div class="v" id="netReadout">Neutral</div></div>
+          <div class="card"><div class="k">Test charge state</div><div class="v" id="testChargeReadout">Stationary</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const pairCountSlider = document.getElementById('pairCount');
+    const speedSlider = document.getElementById('speed');
+    const thermalSlider = document.getElementById('thermal');
+    const contractSlider = document.getElementById('contract');
+    const segmentSlider = document.getElementById('segment');
+    const showTrailsBox = document.getElementById('showTrails');
+    const showDensityBox = document.getElementById('showDensity');
+    const showSegmentBox = document.getElementById('showSegment');
+    const testSpeedSlider = document.getElementById('testSpeed');
+    const testChargeEnabledBox = document.getElementById('testChargeEnabled');
+    const testChargeMovingBox = document.getElementById('testChargeMoving');
+    const testChargeRightBox = document.getElementById('testChargeRight');
+    const testDirUp = document.getElementById('testDirUp');
+    const testDirDown = document.getElementById('testDirDown');
+    const modeLab = document.getElementById('modeLab');
+    const modeElectron = document.getElementById('modeElectron');
+
+    const pairCountVal = document.getElementById('pairCountVal');
+    const speedVal = document.getElementById('speedVal');
+    const thermalVal = document.getElementById('thermalVal');
+    const contractVal = document.getElementById('contractVal');
+    const segmentVal = document.getElementById('segmentVal');
+    const testSpeedVal = document.getElementById('testSpeedVal');
+
+    const toggleBtn = document.getElementById('toggleBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const frameReadout = document.getElementById('frameReadout');
+    const visibleIonReadout = document.getElementById('visibleIonReadout');
+    const visibleElectronReadout = document.getElementById('visibleElectronReadout');
+    const ionSegmentReadout = document.getElementById('ionSegmentReadout');
+    const electronSegmentReadout = document.getElementById('electronSegmentReadout');
+    const netReadout = document.getElementById('netReadout');
+    const testChargeReadout = document.getElementById('testChargeReadout');
+
+    let running = true;
+    const wire = { x: W/2 - 95, y: 95, w: 190, h: H - 190 };
+    const electronLanes = 2;
+    let ionsBase = [];
+    let electrons = [];
+    let frozenElectronIndex = 0;
+    let ionPhase = 0;
+    let testCharge = null;
+
+    function rand(min, max) { return min + Math.random() * (max - min); }
+    function mode() { return modeElectron.checked ? 'electron' : 'lab'; }
+
+    function laneX(laneIndex, totalLanes) {
+      return wire.x + wire.w * (laneIndex + 0.5) / totalLanes;
+    }
+
+    function makeIonsBase() {
+      const n = parseInt(pairCountSlider.value, 10);
+      ionsBase = [];
+      for (let i = 0; i < n; i++) {
+        const lane = i % 2;
+        const stackIndex = Math.floor(i / 2);
+        const stacks = Math.ceil(n / 2);
+        const x = laneX(lane, 2);
+        const y = wire.y + wire.h * (stackIndex + 0.5) / stacks;
+        ionsBase.push({ x, y, radius: 12, lane, stackIndex });
+      }
+    }
+
+    function makeElectrons() {
+      const n = parseInt(pairCountSlider.value, 10);
+      electrons = [];
+      const perLane = Math.ceil(n / electronLanes);
+      let created = 0;
+      for (let lane = 0; lane < electronLanes; lane++) {
+        for (let j = 0; j < perLane && created < n; j++) {
+          const x = laneX(lane, electronLanes) + rand(-15, 15);
+          const y = wire.y + wire.h - 28 - j * (wire.h - 56) / Math.max(1, perLane - 1);
+          electrons.push({ x, y, lane, trail: [] });
+          created++;
+        }
+      }
+      frozenElectronIndex = Math.floor(n / 2);
+    }
+
+    function resetTestCharge() {
+      const onRight = testChargeRightBox.checked;
+      testCharge = {
+        x: onRight ? wire.x + wire.w + 120 : wire.x - 120,
+        y: wire.y + wire.h / 2,
+        vx: 0,
+        vy: 0,
+        trail: []
+      };
+    }
+
+    function resetScene() {
+      makeIonsBase();
+      makeElectrons();
+      ionPhase = 0;
+      resetTestCharge();
+      syncLabels();
+    }
+
+    function getSegmentBounds() {
+      const frac = parseFloat(segmentSlider.value);
+      const segmentH = wire.h * frac;
+      const y1 = wire.y + (wire.h - segmentH) / 2;
+      const y2 = y1 + segmentH;
+      return { y1, y2, h: segmentH };
+    }
+
+    function getDisplayedIons() {
+      const m = mode();
+      const contraction = parseFloat(contractSlider.value);
+      const centerY = wire.y + wire.h / 2;
+      const span = wire.h - 20;
+      return ionsBase.map(ion => {
+        let y = ion.y;
+        if (m === 'electron') {
+          y = centerY + (ion.y - centerY) * (1 - contraction) - ionPhase;
+          while (y < wire.y + 10) y += span;
+          while (y > wire.y + wire.h - 10) y -= span;
+        }
+        return { x: ion.x, y, radius: ion.radius };
+      });
+    }
+
+    function syncLabels() {
+      pairCountVal.textContent = pairCountSlider.value;
+      speedVal.textContent = parseFloat(speedSlider.value).toFixed(2);
+      thermalVal.textContent = parseFloat(thermalSlider.value).toFixed(2);
+      contractVal.textContent = parseFloat(contractSlider.value).toFixed(2);
+      segmentVal.textContent = `${parseFloat(segmentSlider.value).toFixed(2)} L`;
+      testSpeedVal.textContent = parseFloat(testSpeedSlider.value).toFixed(2);
+      frameReadout.textContent = mode() === 'lab' ? 'Lab frame' : 'Electron frame';
+      visibleIonReadout.textContent = pairCountSlider.value;
+      visibleElectronReadout.textContent = pairCountSlider.value;
+      const ts = parseFloat(testSpeedSlider.value);
+      testChargeReadout.textContent = !testChargeEnabledBox.checked ? 'Hidden' : (testChargeMovingBox.checked ? `Moving (${ts.toFixed(2)})` : 'Stationary');
+    }
+
+    function drawArrow(x1, y1, x2, y2, color, width = 4) {
+      const dx = x2 - x1, dy = y2 - y1;
+      const ang = Math.atan2(dy, dx), head = 14;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - head * Math.cos(ang - Math.PI/6), y2 - head * Math.sin(ang - Math.PI/6));
+      ctx.lineTo(x2 - head * Math.cos(ang + Math.PI/6), y2 - head * Math.sin(ang + Math.PI/6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawBackground() {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+      for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+      ctx.restore();
+    }
+
+    function drawWire() {
+      ctx.save();
+      ctx.fillStyle = 'rgba(203,213,225,0.08)';
+      ctx.strokeStyle = 'rgba(203,213,225,0.75)';
+      ctx.lineWidth = 3;
+      ctx.fillRect(wire.x, wire.y, wire.w, wire.h);
+      ctx.strokeRect(wire.x, wire.y, wire.w, wire.h);
+      ctx.restore();
+    }
+
+    function drawMeasurementSegment() {
+      if (!showSegmentBox.checked) return;
+      const seg = getSegmentBounds();
+      ctx.save();
+      ctx.fillStyle = 'rgba(192,132,252,0.10)';
+      ctx.strokeStyle = 'rgba(192,132,252,0.85)';
+      ctx.setLineDash([10, 8]);
+      ctx.lineWidth = 3;
+      ctx.fillRect(wire.x - 18, seg.y1, wire.w + 36, seg.h);
+      ctx.strokeRect(wire.x - 18, seg.y1, wire.w + 36, seg.h);
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('same measured wire segment', wire.x + wire.w + 70, seg.y1 - 12);
+      ctx.restore();
+    }
+
+    function drawTopLabels() {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.font = 'bold 22px Arial';
+      const text = mode() === 'lab'
+        ? 'Lab frame: visible positive and negative charges are balanced in the same wire segment'
+        : 'Electron frame: frozen electron, moving ion lattice, and contracted ion spacing';
+      ctx.fillText(text, W / 2, 36);
+      ctx.font = '16px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.80)';
+      const sub = mode() === 'lab'
+        ? 'Electrons drift downward while the positive lattice stays fixed.'
+        : 'Conceptual relativity view: more positive ions fit in the same length of wire.';
+      ctx.fillText(sub, W / 2, 60);
+      ctx.restore();
+    }
+
+    function drawIons(ions) {
+      ions.forEach(ion => {
+        ctx.beginPath();
+        ctx.fillStyle = '#ef4444';
+        ctx.arc(ion.x, ion.y, ion.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', ion.x, ion.y + 1);
+      });
+    }
+
+    function drawElectrons() {
+      electrons.forEach((e, index) => {
+        if (showTrailsBox.checked && e.trail.length > 1) {
+          ctx.beginPath();
+          for (let i = 0; i < e.trail.length; i++) {
+            const p = e.trail[i];
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = index === frozenElectronIndex && mode() === 'electron'
+            ? 'rgba(250,204,21,0.45)' : 'rgba(34,197,94,0.35)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        if (index === frozenElectronIndex && mode() === 'electron') {
+          ctx.beginPath();
+          ctx.strokeStyle = 'rgba(253,224,71,0.9)';
+          ctx.lineWidth = 3;
+          ctx.arc(e.x, e.y, 14, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.fillStyle = index === frozenElectronIndex && mode() === 'electron' ? '#fde047' : '#22c55e';
+        ctx.arc(e.x, e.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#03130a';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('−', e.x, e.y + 0.5);
+      });
+    }
+
+    function drawMagneticCue() {
+      if (!testChargeEnabledBox.checked || !testCharge) return;
+      ctx.save();
+      const onRight = testCharge.x > wire.x + wire.w/2;
+      const sign = onRight ? 1 : -1;
+      const bx = testCharge.x + sign * 26;
+      const by = testCharge.y - 56;
+      ctx.fillStyle = 'rgba(96,165,250,0.95)';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('B', bx, by - 18);
+      ctx.beginPath();
+      ctx.arc(bx, by, 16, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(96,165,250,0.95)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      if (mode() === 'lab') {
+        ctx.beginPath();
+        ctx.arc(bx, by, 3.2, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(bx-7, by-7); ctx.lineTo(bx+7, by+7);
+        ctx.moveTo(bx+7, by-7); ctx.lineTo(bx-7, by+7);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawTestCharge() {
+      if (!testChargeEnabledBox.checked || !testCharge) return;
+      if (testCharge.trail.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < testCharge.trail.length; i++) {
+          const p = testCharge.trail[i];
+          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        }
+        ctx.strokeStyle = 'rgba(250,204,21,0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.fillStyle = '#f8fafc';
+      ctx.arc(testCharge.x, testCharge.y, 12, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#111827';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('+', testCharge.x, testCharge.y + 1);
+
+      const ts = parseFloat(testSpeedSlider.value);
+      if (testChargeMovingBox.checked) {
+        drawArrow(testCharge.x, testCharge.y, testCharge.x, testCharge.y - 46, '#f8fafc', 3);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('v', testCharge.x + 16, testCharge.y - 52);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = 'bold 16px Arial';
+      ctx.fillText('external test charge', testCharge.x, testCharge.y + 28);
+      drawMagneticCue();
+    }
+
+    function drawSideArrows() {
+      drawArrow(wire.x + wire.w + 75, wire.y + 40, wire.x + wire.w + 75, wire.y + wire.h - 40, '#60a5fa', 5);
+      ctx.fillStyle = '#60a5fa';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('E field', wire.x + wire.w + 46, wire.y + 22);
+
+      if (mode() === 'lab') {
+        drawArrow(wire.x - 75, wire.y + wire.h - 40, wire.x - 75, wire.y + 40, '#f59e0b', 5);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText('Current', wire.x - 100, wire.y + 22);
+      } else {
+        drawArrow(wire.x - 75, wire.y + wire.h - 50, wire.x - 75, wire.y + 55, '#f59e0b', 5);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText('Ion motion', wire.x - 116, wire.y + 22);
+      }
+    }
+
+    function drawDensityGuide() {
+      if (!showDensityBox.checked) return;
+      ctx.save();
+      const x1 = wire.x + wire.w + 14;
+      const x2 = x1 + 28;
+      if (mode() === 'lab') {
+        ctx.strokeStyle = 'rgba(239,68,68,0.50)';
+        ctx.setLineDash([6, 6]);
+        for (let y = wire.y + 14; y <= wire.y + wire.h - 14; y += (wire.h - 28) / Math.max(1, ionsBase.length / 2 - 1)) {
+          ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('normal ion spacing', wire.x + wire.w + 108, wire.y + wire.h/2);
+      } else {
+        const contraction = parseFloat(contractSlider.value);
+        const step = ((wire.h - 28) / Math.max(1, ionsBase.length / 2 - 1)) * (1 - contraction);
+        ctx.strokeStyle = 'rgba(239,68,68,0.85)';
+        ctx.setLineDash([4, 4]);
+        for (let y = wire.y + 14; y <= wire.y + wire.h - 14; y += Math.max(12, step)) {
+          ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('contracted ion spacing', wire.x + wire.w + 120, wire.y + wire.h/2);
+      }
+      ctx.restore();
+    }
+
+    function updateElectrons() {
+      const drift = parseFloat(speedSlider.value);
+      const thermal = parseFloat(thermalSlider.value);
+      const m = mode();
+      electrons.forEach((e, index) => {
+        const jitterX = rand(-1, 1) * thermal;
+        const jitterY = rand(-1, 1) * thermal;
+
+        if (m === 'electron' && index === frozenElectronIndex) {
+          e.x = wire.x + wire.w / 2;
+          e.y = wire.y + wire.h / 2;
+        } else {
+          e.x += jitterX;
+          e.y += drift + jitterY;
+          if (e.y > wire.y + wire.h - 10) {
+            e.y = wire.y + 10;
+            e.x = laneX(e.lane, electronLanes) + rand(-15, 15);
+            e.trail = [];
+          }
+          if (e.y < wire.y + 10) e.y = wire.y + 10;
+        }
+
+        const laneCenter = laneX(e.lane, electronLanes);
+        if (e.x < laneCenter - 28) e.x = laneCenter - 28;
+        if (e.x > laneCenter + 28) e.x = laneCenter + 28;
+
+        if (showTrailsBox.checked) {
+          e.trail.push({ x: e.x, y: e.y });
+          if (e.trail.length > 28) e.trail.shift();
+        } else {
+          e.trail = [];
+        }
+      });
+
+      if (m === 'electron') {
+        ionPhase += drift * 0.8;
+        const span = wire.h - 20;
+        while (ionPhase > span) ionPhase -= span;
+      } else {
+        ionPhase = 0;
+      }
+    }
+
+    function updateTestCharge() {
+      if (!testChargeEnabledBox.checked || !testCharge) return;
+      const ts = parseFloat(testSpeedSlider.value);
+      const moving = testChargeMovingBox.checked;
+      const onRight = testChargeRightBox.checked;
+      const dir = testDirUp.checked ? -1 : 1;
+      const homeX = onRight ? (wire.x + wire.w + 120) : (wire.x - 120);
+      const homeY = wire.y + wire.h / 2;
+      const awayFromWire = onRight ? 1 : -1;
+      const accelMag = 0.07 * parseFloat(speedSlider.value) * Math.max(0.6, ts);
+
+      if (!moving) {
+        testCharge.vx = 0;
+        testCharge.vy = 0;
+        testCharge.x += (homeX - testCharge.x) * 0.12;
+        testCharge.y += (homeY - testCharge.y) * 0.12;
+      } else {
+        if (Math.abs(testCharge.vy) < 1e-6) {
+          testCharge.vy = dir * ts * 1.75;
+        }
+        testCharge.vx += awayFromWire * accelMag;
+        testCharge.x += testCharge.vx;
+        testCharge.y += testCharge.vy;
+
+        if (testCharge.y < wire.y + 22 || testCharge.y > wire.y + wire.h - 22) {
+          testCharge.x = homeX;
+          testCharge.y = dir < 0 ? wire.y + wire.h - 22 : wire.y + 22;
+          testCharge.vx = 0;
+          testCharge.vy = dir * ts * 1.75;
+          testCharge.trail = [];
+        }
+      }
+
+      const minX = onRight ? wire.x + wire.w + 48 : 24;
+      const maxX = onRight ? W - 24 : wire.x - 48;
+      if (testCharge.x < minX || testCharge.x > maxX) {
+        testCharge.x = Math.max(minX, Math.min(maxX, testCharge.x));
+        if (moving) testCharge.vx *= 0.15;
+      }
+      testCharge.trail.push({x:testCharge.x, y:testCharge.y});
+      if (testCharge.trail.length > 60) testCharge.trail.shift();
+    }
+
+    function updateReadouts(ions) {
+      const seg = getSegmentBounds();
+      const ionCount = ions.filter(p => p.y >= seg.y1 && p.y <= seg.y2).length;
+      const electronCount = electrons.filter(e => e.y >= seg.y1 && e.y <= seg.y2).length;
+      const net = ionCount - electronCount;
+      ionSegmentReadout.textContent = String(ionCount);
+      electronSegmentReadout.textContent = String(electronCount);
+      if (net === 0) netReadout.textContent = 'Neutral';
+      else if (net > 0) netReadout.textContent = `+${net}`;
+      else netReadout.textContent = `${net}`;
+    }
+
+    function frame() {
+      if (running) {
+        updateElectrons();
+        updateTestCharge();
+      }
+      syncLabels();
+      const ions = getDisplayedIons();
+      ctx.clearRect(0, 0, W, H);
+      drawBackground();
+      drawTopLabels();
+      drawMeasurementSegment();
+      drawWire();
+      drawDensityGuide();
+      drawSideArrows();
+      drawIons(ions);
+      drawElectrons();
+      drawTestCharge();
+      updateReadouts(ions);
+      requestAnimationFrame(frame);
+    }
+
+    [pairCountSlider, speedSlider, thermalSlider, contractSlider, segmentSlider, testSpeedSlider, showTrailsBox, showDensityBox, showSegmentBox, testChargeEnabledBox, testChargeMovingBox, testChargeRightBox].forEach(el => {
+      el.addEventListener('input', () => {
+        if (el === pairCountSlider || el === testChargeRightBox || el === testChargeMovingBox) resetScene();
+        syncLabels();
+      });
+    });
+    [testDirUp, testDirDown, modeLab, modeElectron].forEach(el => el.addEventListener('change', resetScene));
+
+    toggleBtn.addEventListener('click', () => {
+      running = !running;
+      toggleBtn.textContent = running ? 'Pause' : 'Play';
+    });
+    resetBtn.addEventListener('click', resetScene);
+
+    resetScene();
+    frame();
+  </script>
+</body>
+</html>

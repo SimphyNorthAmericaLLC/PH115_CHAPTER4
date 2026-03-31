@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Python Widget</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+  <style>
+    :root {
+      --bg: #111827;
+      --panel: #1f2937;
+      --panel-2: #0f172a;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #2563eb;
+      --accent-2: #1d4ed8;
+      --border: #374151;
+      --green: #22c55e;
+      --output: #0b1220;
+      --warn: #f59e0b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 18px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 1.5rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    button:hover { background: var(--accent-2); }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      color: var(--warn);
+      font-size: 0.92rem;
+      margin-bottom: 10px;
+    }
+
+    .editor-wrap {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--panel);
+      min-height: 430px;
+    }
+
+    .line-numbers {
+      background: #0b1020;
+      color: var(--green);
+      padding: 14px 8px;
+      text-align: right;
+      user-select: none;
+      white-space: pre;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 430px;
+      resize: vertical;
+      border: none;
+      outline: none;
+      background: var(--panel);
+      color: var(--text);
+      padding: 14px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      tab-size: 4;
+    }
+
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel-2);
+      padding: 12px;
+      min-height: 220px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px 0;
+      font-size: 1rem;
+    }
+
+    #output {
+      white-space: pre-wrap;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 14px;
+      color: #d1fae5;
+      background: var(--output);
+      border-radius: 8px;
+      padding: 10px;
+      min-height: 160px;
+    }
+
+    #plotContainer {
+      background: white;
+      border-radius: 8px;
+      min-height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      padding: 8px;
+    }
+
+    #plotImage {
+      max-width: 100%;
+      height: auto;
+      display: none;
+    }
+
+    .status {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 900px) {
+      .panels { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Student Python Widget</h1>
+    <div class="subtitle">Students can write and run Python code directly in the browser.</div>
+    <div class="hint">For plots, use matplotlib normally, but do not use <code>plt.show()</code>. The widget captures the current figure automatically.</div>
+
+    <div class="toolbar">
+      <button id="runBtn">Run Code</button>
+      <button id="savePngBtn" disabled>Save PNG</button>
+      <button id="savePdfBtn" disabled>Save PDF</button>
+      <button id="resetBtn">Reset Starter Code</button>
+    </div>
+
+    <div class="editor-wrap">
+      <div class="line-numbers" id="lineNumbers">1</div>
+      <textarea id="codeEditor" spellcheck="false"></textarea>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <h2>Printed Output</h2>
+        <div id="output">Pyodide is loading...</div>
+      </div>
+      <div class="panel">
+        <h2>Plot Output</h2>
+        <div id="plotContainer">
+          <img id="plotImage" alt="Plot output" />
+          <div id="plotPlaceholder" style="color:#374151; font-family:Arial, sans-serif;">No plot yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Initializing...</div>
+  </div>
+
+  <script>
+    const starterCode = `# Write your Python code below\n# Example:\n\nimport numpy as np\nimport matplotlib.pyplot as plt\n\nx = np.linspace(0, 2*np.pi, 400)\ny = np.sin(x)\n\nprint("Maximum y value:", np.max(y))\n\nplt.figure(figsize=(7,4))\nplt.plot(x, y)\nplt.xlabel("x")\nplt.ylabel("sin(x)")\nplt.title("Example Plot")\nplt.grid(True)\nplt.tight_layout()\n`;
+
+    const editor = document.getElementById('codeEditor');
+    const lineNumbers = document.getElementById('lineNumbers');
+    const output = document.getElementById('output');
+    const statusEl = document.getElementById('status');
+    const plotImage = document.getElementById('plotImage');
+    const plotPlaceholder = document.getElementById('plotPlaceholder');
+    const runBtn = document.getElementById('runBtn');
+    const savePngBtn = document.getElementById('savePngBtn');
+    const savePdfBtn = document.getElementById('savePdfBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let pyodide = null;
+    let latestPlotBase64 = null;
+    let currentCodeFilename = 'student_code.py';
+
+    function updateLineNumbers() {
+      const lines = editor.value.split('\n').length;
+      let nums = '';
+      for (let i = 1; i <= lines; i++) nums += i + '\n';
+      lineNumbers.textContent = nums;
+      lineNumbers.scrollTop = editor.scrollTop;
+    }
+
+    editor.addEventListener('input', updateLineNumbers);
+    editor.addEventListener('scroll', () => {
+      lineNumbers.scrollTop = editor.scrollTop;
+    });
+
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = start + 4;
+        updateLineNumbers();
+      }
+    });
+
+    function setPlot(base64png) {
+      latestPlotBase64 = base64png || null;
+      if (latestPlotBase64) {
+        plotImage.src = 'data:image/png;base64,' + latestPlotBase64;
+        plotImage.style.display = 'block';
+        plotPlaceholder.style.display = 'none';
+        savePngBtn.disabled = false;
+        savePdfBtn.disabled = false;
+      } else {
+        plotImage.removeAttribute('src');
+        plotImage.style.display = 'none';
+        plotPlaceholder.style.display = 'block';
+        savePngBtn.disabled = true;
+        savePdfBtn.disabled = true;
+      }
+    }
+
+    function downloadDataUrl(filename, dataUrl) {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    async function initPyodideApp() {
+      statusEl.textContent = 'Loading Pyodide...';
+      pyodide = await loadPyodide();
+      statusEl.textContent = 'Loading Python packages...';
+      await pyodide.loadPackage(['numpy', 'matplotlib', 'micropip']);
+      await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('sympy')
+      `);
+      output.textContent = 'Ready. Students can now write and run Python code.';
+      statusEl.textContent = 'Ready.';
+      runBtn.disabled = false;
+    }
+
+    async function runCode() {
+      if (!pyodide) return;
+
+      runBtn.disabled = true;
+      savePngBtn.disabled = true;
+      savePdfBtn.disabled = true;
+      output.textContent = 'Running...';
+      setPlot(null);
+      statusEl.textContent = 'Executing code...';
+
+      const userCode = editor.value;
+      pyodide.globals.set('USER_CODE', userCode);
+
+      const wrapper = `
+import io
+import sys
+import base64
+import traceback
+from contextlib import redirect_stdout
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+import sympy as sp
+
+__stdout_buffer__ = io.StringIO()
+__plot_png__ = None
+__plot_pdf__ = None
+
+plt.close('all')
+
+try:
+    with redirect_stdout(__stdout_buffer__):
+        exec(USER_CODE, globals())
+
+    figs = plt.get_fignums()
+    if figs:
+        fig = plt.figure(figs[-1])
+        png_buffer = io.BytesIO()
+        pdf_buffer = io.BytesIO()
+        fig.savefig(png_buffer, format='png', bbox_inches='tight')
+        fig.savefig(pdf_buffer, format='pdf', bbox_inches='tight')
+        png_buffer.seek(0)
+        pdf_buffer.seek(0)
+        __plot_png__ = base64.b64encode(png_buffer.read()).decode('utf-8')
+        __plot_pdf__ = base64.b64encode(pdf_buffer.read()).decode('utf-8')
+
+    __result__ = {
+        'stdout': __stdout_buffer__.getvalue(),
+        'plot_png': __plot_png__,
+        'plot_pdf': __plot_pdf__,
+        'error': ''
+    }
+except Exception:
+    __result__ = {
+        'stdout': __stdout_buffer__.getvalue(),
+        'plot_png': None,
+        'plot_pdf': None,
+        'error': traceback.format_exc()
+    }
+      `;
+
+      try {
+        await pyodide.runPythonAsync(wrapper);
+        const result = pyodide.globals.get('__result__').toJs({ dict_converter: Object.fromEntries });
+
+        let text = '';
+        if (result.stdout) text += result.stdout;
+        if (result.error) {
+          if (text && !text.endsWith('\n')) text += '\n';
+          text += result.error;
+        }
+        if (!text.trim()) text = 'Code ran successfully. No printed output.';
+        output.textContent = text;
+
+        if (result.plot_png) {
+          setPlot(result.plot_png);
+          window._latestPdfBase64 = result.plot_pdf || null;
+        } else {
+          setPlot(null);
+          window._latestPdfBase64 = null;
+        }
+
+        statusEl.textContent = result.error ? 'Execution finished with an error.' : 'Execution finished.';
+      } catch (err) {
+        output.textContent = String(err);
+        setPlot(null);
+        window._latestPdfBase64 = null;
+        statusEl.textContent = 'Execution failed.';
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    savePngBtn.addEventListener('click', () => {
+      if (!latestPlotBase64) return;
+      downloadDataUrl('student_plot.png', 'data:image/png;base64,' + latestPlotBase64);
+    });
+
+    savePdfBtn.addEventListener('click', () => {
+      if (!window._latestPdfBase64) return;
+      downloadDataUrl('student_plot.pdf', 'data:application/pdf;base64,' + window._latestPdfBase64);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      editor.value = starterCode;
+      updateLineNumbers();
+      output.textContent = 'Starter code restored.';
+      setPlot(null);
+      statusEl.textContent = 'Ready.';
+    });
+
+    runBtn.addEventListener('click', runCode);
+
+    editor.value = starterCode;
+    updateLineNumbers();
+    runBtn.disabled = true;
+    initPyodideApp();
+  </script>
+</body>
+</html>
